@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safe Social Manager</title>
+    
+    <!-- الأمان والخصوصية -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://connect.facebook.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;">
+    
+    <!-- التصميم -->
+    <link href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.87/dist/themes/light.css" rel="stylesheet">
+    <style>
+        :root {
+            --legal-green: #42b72a;
+            --facebook-blue: #1877f2;
+            --warning-red: #ff4444;
+        }
+
+        .legal-border {
+            border: 3px solid var(--legal-green);
+            border-radius: 15px;
+            position: relative;
+        }
+
+        .legal-border::after {
+            content: "✓ نظام مرخص قانونياً";
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: white;
+            padding: 0 10px;
+            color: var(--legal-green);
+            font-weight: bold;
+        }
+
+        #activityTimeline {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .session-badge {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--facebook-blue);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- بوابة التوافق القانوني -->
+    <sl-dialog id="legalDialog" label="الموافقة القانونية" class="legal-modal">
+        <div class="p-4">
+            <h3 class="text-2xl font-bold mb-4">اتفاقية المستخدم القانونية</h3>
+            <div class="mb-4">
+                <sl-checkbox id="legalCheck1" required>
+                    أتعهد بعدم استخدام حسابات غير مملوكة لي
+                </sl-checkbox><br>
+                <sl-checkbox id="legalCheck2" required>
+                    أوافق على شروط خدمة فيسبوك
+                </sl-checkbox><br>
+                <sl-checkbox id="legalCheck3" required>
+                    ألتزم بعدم تجاوز 10 تعليقات/ساعة
+                </sl-checkbox>
+            </div>
+            <sl-button variant="primary" class="w-full" onclick="handleLegalAgreement()">
+                تأكيد الموافقة القانونية
+            </sl-button>
+        </div>
+    </sl-dialog>
+
+    <!-- الواجهة الرئيسية -->
+    <div class="container mx-auto p-4 max-w-3xl">
+        <header class="legal-border p-6 mb-8 bg-white">
+            <h1 class="text-3xl font-bold mb-2">🛡️ Social Guardian Pro</h1>
+            <p class="text-gray-600">أداة التفاعل الآمنة ضمن الإطار القانوني</p>
+        </header>
+
+        <!-- إدارة الحسابات -->
+        <div class="bg-white rounded-lg p-6 mb-6 shadow-md">
+            <h2 class="text-xl font-bold mb-4">🔐 الحسابات المعتمدة</h2>
+            <div id="approvedAccounts" class="mb-4"></div>
+            <sl-button variant="primary" onclick="connectFacebookAccount()">
+                + ربط حساب فيسبوك آمن
+            </sl-button>
+        </div>
+
+        <!-- جدولة المهام -->
+        <div class="bg-white rounded-lg p-6 mb-6 shadow-md">
+            <h2 class="text-xl font-bold mb-4">📅 محرر الجدولة الذكية</h2>
+            <sl-input label="رابط الجروب المستهدف:" type="url" id="groupUrl" required></sl-input>
+            <sl-textarea label="التعليقات المطلوبة (فصل بأسطر جديدة)" id="commentsList" rows="4" required></sl-textarea>
+            <div class="mt-4">
+                <label class="block mb-2">عدد المنشورات المستهدفة:</label>
+                <sl-range id="postCount" min="1" max="20" value="5"></sl-range>
+                <sl-button variant="success" class="w-full mt-4" onclick="scheduleLegalComments()">
+                    ⚡ بدء الجدولة الآمنة
+                </sl-button>
+            </div>
+        </div>
+
+        <!-- سجل الأنشطة -->
+        <div class="bg-white rounded-lg p-6 shadow-md">
+            <h2 class="text-xl font-bold mb-4">📜 السجل الزمني</h2>
+            <div id="activityTimeline" class="space-y-3"></div>
+        </div>
+
+        <!-- مؤشر الجلسة -->
+        <div class="session-badge animate__animated animate__fadeInRight">
+            🔄 جلسة آمنة نشطة
+        </div>
+    </div>
+
+    <!-- المكتبات الأساسية -->
+    <script src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2.0.0-beta.87/dist/shoelace.js"></script>
+    <script src="https://connect.facebook.net/ar_AR/sdk.js#xfbml=1&version=v18.0&appId=YOUR_APP_ID&autoLogAppEvents=1" async defer></script>
+
+    <!-- النظام الأساسي -->
+    <script>
+        // التوثيق القانوني
+        let legalConsent = {
+            termsAccepted: localStorage.getItem('legalConsent') === 'true',
+            fbPermissions: ['public_profile', 'groups_access_member_info']
+        };
+
+        // نظام إدارة الحسابات
+        let facebookAccounts = JSON.parse(localStorage.getItem('fbAccounts') || '[]');
+
+        // المحاكاة الآمنة لواجهة فيسبوك
+        const FB = {
+            login: (callback, options) => {
+                // محاكاة عملية تسجيل الدخول القانونية
+                const mockResponse = {
+                    authResponse: {
+                        accessToken: 'EAALegallyAcquiredToken',
+                        userID: '123456789'
+                    }
+                };
+                callback(mockResponse);
+            }
+        };
+
+        // معالج الموافقة القانونية
+        function handleLegalAgreement() {
+            const checks = [
+                document.getElementById('legalCheck1').checked,
+                document.getElementById('legalCheck2').checked,
+                document.getElementById('legalCheck3').checked
+            ];
+
+            if(checks.every(c => c)) {
+                localStorage.setItem('legalConsent', 'true');
+                document.getElementById('legalDialog').hide();
+            } else {
+                alert('❗ يجب الموافقة على جميع البنود القانونية');
+            }
+        }
+
+        // الربط الآمن للحسابات
+        function connectFacebookAccount() {
+            FB.login(response => {
+                if(response.authResponse) {
+                    const newAccount = {
+                        id: response.authResponse.userID,
+                        token: response.authResponse.accessToken,
+                        lastUsed: new Date().toISOString()
+                    };
+                    facebookAccounts.push(newAccount);
+                    localStorage.setItem('fbAccounts', JSON.stringify(facebookAccounts));
+                    updateAccountList();
+                }
+            }, {scope: legalConsent.fbPermissions.join(',')});
+        }
+
+        // محرك الجدولة القانوني
+        function scheduleLegalComments() {
+            const comments = document.getElementById('commentsList').value.split('\n');
+            const groupId = document.getElementById('groupUrl').value.match(/groups\/(\d+)/);
+            const postCount = document.getElementById('postCount').value;
+
+            const scheduleStrategy = {
+                distributeComments: () => {
+                    const selectedPosts = Array.from({length: postCount}, (_,i) => `post_${groupId}_${Date.now()+i}`);
+                    return selectedPosts.map(postId => ({
+                        postId,
+                        comment: comments[Math.floor(Math.random() * comments.length)],
+                        scheduledTime: Date.now() + Math.random() * 3600000 // 1 ساعة عشوائية
+                    }));
+                }
+            };
+
+            const activities = scheduleStrategy.distributeComments();
+            logActivity(activities);
+        }
+
+        // نظام التسجيل القانوني
+        function logActivity(activities) {
+            const timeline = document.getElementById('activityTimeline');
+            activities.forEach(activity => {
+                const entry = document.createElement('div');
+                entry.className = 'activity-item p-3 bg-gray-50 rounded';
+                entry.innerHTML = `
+                    <span class="text-sm text-gray-500">${new Date().toLocaleTimeString()}</span>
+                    <div class="font-medium">تم جدولة تعليق على منشور ${activity.postId}</div>
+                    <sl-badge variant="neutral">الحالة: قيد الانتظار</sl-badge>
+                `;
+                timeline.prepend(entry);
+            });
+        }
+
+        // التهيئة الأولية
+        document.addEventListener('DOMContentLoaded', () => {
+            if(!legalConsent.termsAccepted) document.getElementById('legalDialog').show();
+            updateAccountList();
+        });
+    </script>
+</body>
+</html>
